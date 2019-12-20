@@ -19,6 +19,8 @@ public class SiteAddLayout
     private Dialog dialog;
     private SitesSetupPresenter presenter;
 
+    private Context ctx;
+
     public SiteAddLayout(Context context) {
         this(context, null);
     }
@@ -29,6 +31,7 @@ public class SiteAddLayout
 
     public SiteAddLayout(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
+        this.ctx = context;
     }
 
     @Override
@@ -60,7 +63,7 @@ public class SiteAddLayout
     }
 
     public void onPositiveClicked() {
-        presenter.onAddClicked(url.getText().toString());
+        presenter.onAddClicked(url.getText().toString(), ctx);
     }
 
     @Override

@@ -16,6 +16,7 @@
  */
 package com.github.adamantcheese.chan.core.presenter;
 
+import android.content.Context;
 import android.widget.Toast;
 
 import com.github.adamantcheese.chan.R;
@@ -107,8 +108,8 @@ public class SitesSetupPresenter
         callback.showAddDialog();
     }
 
-    public void onAddClicked(String url) {
-        siteService.addSite(url, new SiteService.SiteAddCallback() {
+    public void onAddClicked(String url, Context ctx) {
+        siteService.addSite(url, ctx, new SiteService.SiteAddCallback() {
             @Override
             public void onSiteAdded(Site site) {
                 siteAdded(site);

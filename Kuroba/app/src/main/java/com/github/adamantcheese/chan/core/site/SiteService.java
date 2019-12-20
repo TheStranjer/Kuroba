@@ -21,6 +21,20 @@ import com.github.adamantcheese.chan.core.repository.SiteRepository;
 import com.github.adamantcheese.chan.core.settings.json.JsonSettings;
 
 import java.util.List;
+import java.net.URI;
+import java.net.URISyntaxException;
+
+import com.github.adamantcheese.chan.core.site.sites.lynxchan.LynxChanIndexRequest;
+import com.github.adamantcheese.chan.core.site.sites.lynxchan.LynxChanIndexResult;
+
+import android.content.Context;
+import com.android.volley.RequestQueue;
+import com.android.volley.VolleyError;
+import com.android.volley.Cache;
+import com.android.volley.Network;
+import com.android.volley.toolbox.DiskBasedCache;
+import com.android.volley.toolbox.BasicNetwork;
+import com.android.volley.toolbox.HurlStack;
 
 import javax.inject.Inject;
 
@@ -29,6 +43,8 @@ public class SiteService {
     private SiteResolver resolver;
 
     private boolean initialized = false;
+
+    RequestQueue requestQueue;
 
     @Inject
     public SiteService(SiteRepository siteRepository, SiteResolver resolver) {
@@ -40,7 +56,7 @@ public class SiteService {
         return !siteRepository.all().getAll().isEmpty();
     }
 
-    public void addSite(String url, SiteAddCallback callback) {
+    public void addSite(String url, Context ctx, SiteAddCallback callback) {
         Site existing = resolver.findSiteForUrl(url);
         if (existing != null) {
             callback.onSiteAddFailed("site already added");
@@ -53,7 +69,25 @@ public class SiteService {
         if (resolve.match == SiteResolver.SiteResolverResult.Match.BUILTIN) {
             siteClass = resolve.builtinResult;
         } else if (resolve.match == SiteResolver.SiteResolverResult.Match.EXTERNAL) {
-            callback.onSiteAddFailed("external sites not hardcoded is not implemented yet");
+            callback.onSiteAddFailed("not detected in predefined list, checking if LynxChan instance...");
+
+            Cache cache = new DiskBasedCache(ctx.getCacheDir(), 1024 * 1024); // 1MB cap
+            Network network = new BasicNetwork(new HurlStack());
+            requestQueue = new RequestQueue(cache, network);
+            requestQueue.start();
+            try {
+                URI uri = new URI(url);
+
+                // hacky little trick that gets around the fact that new URI("16chan.xyz")
+                // sets the host to null and the path to "16chan.xyz" while
+                // new URI("https://16chan.xyz/") sets the host to "16chan.xyz" and the
+                // path to null
+                String host = uri.getHost() != null ? uri.getHost() : uri.getPath(); 
+                requestQueue.add(new LynxChanIndexRequest(host, response -> { lynxChanIndexResponse(response, callback); }, error -> { lynxChanIndexFailure(error, callback); }));
+            } catch (URISyntaxException e) {
+                callback.onSiteAddFailed("not a url");
+            }
+
             return;
         } else {
             callback.onSiteAddFailed("not a url");
@@ -63,6 +97,18 @@ public class SiteService {
         Site site = siteRepository.createFromClass(siteClass);
 
         callback.onSiteAdded(site);
+    }
+
+    public void lynxChanIndexResponse(LynxChanIndexResult response, SiteAddCallback callback) {
+        if (response.IsLynxChanInstance()) {
+            callback.onSiteAddFailed("detected LynxChan instance, but not implemented yet");
+        } else {
+            callback.onSiteAddFailed("not a valid LynxChan instance");
+        }
+    }
+
+    public void lynxChanIndexFailure(VolleyError error, SiteAddCallback callback) {
+        callback.onSiteAddFailed("not in premade list and can't detect chansite instance");
     }
 
     public void updateUserSettings(Site site, JsonSettings jsonSettings) {
